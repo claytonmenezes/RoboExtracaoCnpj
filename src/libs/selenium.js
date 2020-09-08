@@ -1,7 +1,13 @@
 import {Builder, By, Key, until} from 'selenium-webdriver'
+import sqlite3 from 'sqlite3'
 
 let driver = null
-let cnpjs = []
+let db = new sqlite3.Database('dbCnpj.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  if (err) {
+    return console.error(err.message);
+  }
+  console.log('Conectado em dbCnpj.');
+})
 
 export default {
   async start () {
@@ -12,6 +18,12 @@ export default {
       console.log('------------------------------------------------------------------------------------------------------')
     }
     await this.fechaPagina()
+    await db.close((err) => {
+      if (err) {
+        return console.error(err.message);
+      }
+      console.log('Desconectado dbCnpj.');
+    })
     return
   },
   async auxiliar () {
@@ -20,7 +32,6 @@ export default {
       await this.pegaCnpjPagina(await driver.findElements(By.xpath('//*[@id="content"]/corretores-pequisa/section/div/div/div/div/div/table/tbody/tr')))
       await this.proximaPagina()
       await this.auxiliar()
-      console.log(cnpjs)
     } catch (error) {
       console.log(error)
     }
@@ -74,8 +85,8 @@ export default {
       if (tds.length) {
         let cnpj = await tds[2].getText()
         if (!cnpj.includes('***')) {
+          await this.inserirCnpj(cnpj)
           console.log(cnpj)
-          cnpjs.push(cnpj)
         }
       }
     }
@@ -97,6 +108,15 @@ export default {
         return true
       }
       return false
+    })
+  },
+  async inserirCnpj (cnpj) {
+    await db.run('CREATE TABLE IF NOT EXISTS Cnpj(numero text)')
+    await db.run(`INSERT INTO Cnpj(numero) VALUES(?)`, [cnpj], function(err) {
+      if (err) {
+        return console.log(err.message)
+      }
+      console.log(`A row has been inserted with rowid ${this.lastID}`);
     })
   }
 }
